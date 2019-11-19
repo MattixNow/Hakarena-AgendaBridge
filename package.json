@@ -4,12 +4,16 @@
   "description": "A tutorial on pulling events from a google calendar.",
   "author": "Matt Toigo",
   "dependencies": {
+    "cookie-parser": "^1.4.4",
     "dayjs": "^1.8.17",
     "dotenv": "^8.2.0",
     "express": "*",
+    "express-session": "^1.17.0",
     "express-validator": "*",
     "google-auth-library": "^5.5.1",
-    "googleapis": "39",
-    "moment": "2.8.4"
+    "googleapis": "39"
+  },
+  "scripts": {
+    "start": "node app.js"
   }
 }

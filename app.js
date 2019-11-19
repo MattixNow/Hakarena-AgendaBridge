@@ -1,67 +1,79 @@
-require('dotenv').config()
+require("dotenv").config()
+const session = require("express-session")
 // Google OAuth Configuration
 var googleConfig = {
-    clientID:
-        process.env.gApiId,
+    clientID: process.env.gApiId,
 
-    clientSecret:process.env.gApiSecret,
+    clientSecret: process.env.gApiSecret,
     calendarId: process.env.clientCalendarId,
     redirectURL: "http://localhost:2002/auth"
-};
+}
 
 // Dependency setup
-var dayjs = require("dayjs");
+var dayjs = require("dayjs")
 
 var express = require("express"),
-    moment = require("moment");
-var { google } = require("googleapis");
+    cookieParser = require("cookie-parser")
+var { google } = require("googleapis")
 
 // Initialization
 var app = express(),
-    calendar = google.calendar("v3");
-(oAuthClient = new google.auth.OAuth2(
+    calendar = google.calendar("v3")
+;(oAuthClient = new google.auth.OAuth2(
     googleConfig.clientID,
     googleConfig.clientSecret,
     googleConfig.redirectURL
 )),
-    (authed = false);
+    (authed = false)
 
 function addEvent(timeRange) {
-    console.log(timeRange);
-    
+    console.log(timeRange)
 }
-app.use(express.json());
+
+
+app.use(
+    session({
+        secret: process.env.sessionSecret,
+        resave: true,
+        saveUninitialized: true
+    })
+)
+app.use(express.json())
 app.get("/", (req, res) => {
+    if (!req.session.calendarData) {
+        console.log('save session')
+        req.session.calendarData = JSON.parse(req.query.data)
+    }
+    console.log(req.session.calendarData)
 
-    console.log(req.query.data);
-
-    var first = dayjs().format();
+    var first = dayjs().format()
     var second = dayjs()
         .add(5, "minute")
-        .format();
+        .format()
+
+
+    if (!authed) {
+        // Generate an OAuth URL and redirect there
+        var url = oAuthClient.generateAuthUrl({
+            access_type: "offline",
+            scope: "https://www.googleapis.com/auth/calendar"
+        })
+        // res.send("Redirecting")
+        res.redirect(url)
+    } else {
+        var today = dayjs().format("YYYY-MM-DD") + "T"
+
         
-        
-        
-        if (!authed) {
-            // Generate an OAuth URL and redirect there
-            var url = oAuthClient.generateAuthUrl({
-                access_type: "offline",
-                scope: "https://www.googleapis.com/auth/calendar"
-            });
-            res.redirect(url);
-        } else {
-            var today = moment().format("YYYY-MM-DD") + "T";
-            
-            console.log('data :' +req.query.data)
-        var ourData = JSON.parse(req.query.data);
-            
-            // Call google to fetch events for today on our calendar
-            calendar.events.insert(
-                {
-                    calendarId: googleConfig.calendarId,
-                    sendNotifications: true,
-                    sendUpdates: "all",
-                    supportsAttachments: true,
+        console.log("data :" + req.session.calendarData)
+        var ourData = req.session.calendarData
+
+        // Call google to fetch events for today on our calendar
+        calendar.events.insert(
+            {
+                calendarId: googleConfig.calendarId,
+                sendNotifications: true,
+                sendUpdates: "all",
+                supportsAttachments: true,
                 resource: {
                     start: {
                         dateTime: first
@@ -89,45 +101,44 @@ app.get("/", (req, res) => {
             },
             function(err, events) {
                 if (err) {
-                    console.log("Error fetching events");
-                    console.log(err);
+                    console.log("Error fetching events")
+                    console.log(err)
                 } else {
                     // Send our JSON response back to the browser
-                    console.log("Successfully fetched events");
-                    res.send(events);
+                    console.log("Successfully fetched events")
+                    res.send(events)
                 }
             }
-        );
+        )
     }
- 
-});
+})
 
 // Return point for oAuth flow, should match googleConfig.redirectURL
 app.get("/auth", function(req, res) {
-    var code = req.param("code");
+    var code = req.param("code")
 
     if (code) {
         // Get an access token based on our OAuth code
         oAuthClient.getToken(code, function(err, tokens) {
             if (err) {
-                console.log("Error authenticating");
-                console.log(err);
+                console.log("Error authenticating")
+                console.log(err)
             } else {
-                console.log("Successfully authenticated");
-                console.log(tokens);
+                console.log("Successfully authenticated")
+                console.log(tokens)
 
                 // Store our credentials and redirect back to our main page
-                oAuthClient.setCredentials(tokens);
-                authed = true;
-                res.redirect("/");
+                oAuthClient.setCredentials(tokens)
+                authed = true
+                res.redirect("/")
             }
-        });
+        })
     }
-});
+})
 
 var server = app.listen(2002, function() {
-    var host = server.address().address;
-    var port = server.address().port;
+    var host = server.address().address
+    var port = server.address().port
 
-    console.log(`Listening at http://${host}:${port}`);
-});
+    console.log(`Listening at http://${host}:${port}`)
+})
